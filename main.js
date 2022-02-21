@@ -3,6 +3,7 @@ var CryptoJS = require('crypto-js');
 var express = require('express');
 var bodyParser = require('body-parser');
 var WebSocket = require('ws');
+var difficulty = 4;
 
 var http_port = process.env.HTTP_PORT || 3001;
 var sockets = [];
@@ -15,11 +16,41 @@ var MessageType = {
     RESPONSE_BLOCKCHAIN: 2
 };
 
+class Block {
+    constructor(index, previousHash, timestamp, data, hash, difficulty, nonce) {
+        this.index = index;
+        this.previousHash = previousHash;
+        this.timestamp = timestamp;
+        this.data = data;
+        this.hash = hash.toString();
+        this.difficulty = difficulty;
+        this.nonce = nonce;
+    }
+}
+
+var mineBlock = (blockData) => {
+    var previousBlock = getLatestBlock();
+    var nextIndex = previousBlock.index + 1;
+    var nonce = 0;
+    var nextTimestamp = new Date().getTime() / 1000;
+    var nextHash = calculateHash(nextIndex, previousBlock.hash, nextTimestamp, blockData, nonce);
+    while (nextHash.substring(0, difficulty) !== Array(difficulty + 1).join("0")) {
+        nonce++;
+        nextTimestamp = new Date().getTime() / 1000;
+        nextHash = calculateHash(nextIndex, previousBlock.hash, nextTimestamp, blockData, nonce);
+
+        console.log("\"index\":" + nextIndex + ", \"previousHash\":" + previousBlock.hash + "\"timestamp\":" + nextTimestamp + ",\"data\":" + blockData + ",\x1b[33mhash: " + nextHash + " \x1b[0m," + "\"difficulty\":" + difficulty + " \x1b[33mnonce: " + nonce + " \x1b[0m ");
+    }
+
+    return new Block(nextIndex, previousBlock.hash, nextTimestamp, blockData, nextHash, difficulty, nonce);
+};
+
 var queryChainLengthMsg = () => ({'type': MessageType.QUERY_LATEST});
 var queryAllMsg = () => ({'type': MessageType.QUERY_ALL});
 var responseChainMsg = () => ({
     'type': MessageType.RESPONSE_BLOCKCHAIN, 'data': JSON.stringify(blockchain)
 });
+
 var responseLatestMsg = () => ({
     'type': MessageType.RESPONSE_BLOCKCHAIN,
     'data': JSON.stringify([getLatestBlock()])
@@ -84,7 +115,7 @@ var initHttpServer = () => {
 
     app.get('/blocks', (req, res) => res.send(JSON.stringify(blockchain)));
     app.post('/mineBlock', (req, res) => {
-        var newBlock = generateNextBlock(req.body.data);
+        var newBlock = mineBlock(req.body.data);
         addBlock(newBlock);
         broadcast(responseLatestMsg());
         console.log('Block added: ' + JSON.stringify(newBlock));
@@ -123,15 +154,6 @@ var initConnection = (ws) => {
     write(ws, queryChainLengthMsg());
 };
 
-class Block {
-    constructor(index, previousHash, timestamp, data, hash) {
-        this.index = index;
-        this.previousHash = previousHash;
-        this.timestamp = timestamp;
-        this.data = data;
-        this.hash = hash.toString();
-    }
-}
 
 var getGenesisBlock = () => {
 	return new Block(
@@ -139,41 +161,43 @@ var getGenesisBlock = () => {
 		"0",
 		1465154705,
 		"my genesis block!!",
-		"816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7"
+		"816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7",
+        0,
+        0
 	);
 };
 
 var blockchain = [getGenesisBlock()];
 
-function testApp() {
-    function showBlockchain(inputBlockchain) {
-        for (let i = 0; i < inputBlockchain.length; i++) {
-            console.log(inputBlockchain[i]);
-        }
+// function testApp() {
+//     function showBlockchain(inputBlockchain) {
+//         for (let i = 0; i < inputBlockchain.length; i++) {
+//             console.log(inputBlockchain[i]);
+//         }
 
-        console.log();
-    }
+//         console.log();
+//     }
 
-    // showBlockchain(blockchain);
-    // console.log(calculateHashForBlock(getGenesisBlock()));
+//     // showBlockchain(blockchain);
+//     // console.log(calculateHashForBlock(getGenesisBlock()));
 
-    // //addBlock Test
-    // console.log("Blockchain before addBlock() executes:");
-    // showBlockchain(blockchain);
-    // addBlock(generateNextBlock("test block data"));
-    // console.log("\n");
-    // console.log("Blockchain after addBlock() executes:");
-    // showBlockchain(blockchain);
-}
+//     // //addBlock Test
+//     // console.log("Blockchain before addBlock() executes:");
+//     // showBlockchain(blockchain);
+//     // addBlock(generateNextBlock("test block data"));
+//     // console.log("\n");
+//     // console.log("Blockchain after addBlock() executes:");
+//     // showBlockchain(blockchain);
+// }
 
 var getLatestBlock = () => blockchain[blockchain.length - 1];
 
-var calculateHash = (index, previousHash, timestamp, data) => {
-    return CryptoJS.SHA256(index + previousHash + timestamp + data).toString();
+var calculateHash = (index, previousHash, timestamp, data, nonce) => {
+    return CryptoJS.SHA256(index + previousHash + timestamp + data + nonce).toString();
 };
 
 var calculateHashForBlock = (block) => {
-    return calculateHash(block.index, block.previousHash, block.timestamp, block.data);
+    return calculateHash(block.index, block.previousHash, block.timestamp, block.data, block.nonce);
 };
 
 var generateNextBlock = (blockData) => {
@@ -230,7 +254,7 @@ var replaceChain = (newBlocks) => {
     }
 };
 
-testApp();
+//testApp();
 connectToPeers(initialPeers);
 initHttpServer();
 initP2PServer();
