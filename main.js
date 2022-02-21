@@ -27,16 +27,24 @@ var getGenesisBlock = () => {
 var blockchain = [getGenesisBlock()];
 
 function testApp() {
-    // function showBlockchain(inputBlockchain) {
-    //     for (let i = 0; i < inputBlockchain.length; i++) {
-    //         console.log(inputBlockchain[i]);
-    //     }
+    function showBlockchain(inputBlockchain) {
+        for (let i = 0; i < inputBlockchain.length; i++) {
+            console.log(inputBlockchain[i]);
+        }
 
-    //     console.log();
-    // }
+        console.log();
+    }
 
     // showBlockchain(blockchain);
-    console.log(calculateHashForBlock(getGenesisBlock()));
+    // console.log(calculateHashForBlock(getGenesisBlock()));
+
+    // //addBlock Test
+    // console.log("Blockchain before addBlock() executes:");
+    // showBlockchain(blockchain);
+    // addBlock(generateNextBlock("test block data"));
+    // console.log("\n");
+    // console.log("Blockchain after addBlock() executes:");
+    // showBlockchain(blockchain);
 }
 
 var getLatestBlock = () => blockchain[blockchain.length - 1];
@@ -75,6 +83,30 @@ var isValidNewBlock = (newBlock, previousBlock) => {
 var addBlock = (newBlock) => {
     if (isValidNewBlock(newBlock, getLatestBlock())) {
         blockchain.push(newBlock);
+    }
+};
+
+var isValidChain = (blockchainToValidate) => {
+    if (JSON.stringify(blockchainToValidate[0]) !== JSON.stringify(getGenesisBlock())) {
+        return false;
+    }
+    var tempBlocks = [blockchainToValidate[0]];
+    for (var i = 1; i < blockchainToValidate.length; i++) {
+        if (isValidNewBlock(blockchainToValidate[i], tempBlocks[i - 1])) {
+            tempBlocks.push(blockchainToValidate[i]);
+        } else {
+            return false;
+        }
+    }
+    return true;
+};
+
+var replaceChain = (newBlocks) => {
+    if (isValidChain(newBlocks) && newBlocks.length > blockchain.length) {
+        console.log("Received blockchain is valid. Replacing current blockchain with received blockchain");
+        blockchain = newBlocks;
+    } else {
+        console.log("Received blockchain invalid");
     }
 };
 
