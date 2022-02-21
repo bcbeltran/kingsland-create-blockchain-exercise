@@ -34,10 +34,10 @@ var handleBlockchainResponse = (message) => {
         if(latestBlockHeld.hash === latestBlockReceived.previousHash) {
             console.log("We can append the received block to our chain");
             addBlock(latestBlockReceived);
-            BroadcastChannel(responseLatestMsg());
+            broadcast(responseLatestMsg());
         } else if (receivedBlocks.length === 1) {
             console.log("We have to query the chain from our peer");
-            BroadcastChannel(queryAllMsg());
+            broadcast(queryAllMsg());
         } else {
             console.log("Received blockchain is longer than current blockchain");
             replaceChain(receivedBlocks);
